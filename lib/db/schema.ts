@@ -1,4 +1,4 @@
-import { integer, jsonb, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core"
+import { boolean, integer, jsonb, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core"
 
 export const players = pgTable("players", {
   id: serial("id").primaryKey(),
@@ -22,6 +22,7 @@ export const matches = pgTable("matches", {
   tournament: text("tournament").notNull().default("general"),
   goalsA: integer("goals_a").notNull().default(0),
   goalsB: integer("goals_b").notNull().default(0),
+  completed: boolean("completed").notNull().default(false),
   goalScorersA: jsonb("goal_scorers_a").$type<string[]>().notNull().default([]),
   goalScorersB: jsonb("goal_scorers_b").$type<string[]>().notNull().default([]),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

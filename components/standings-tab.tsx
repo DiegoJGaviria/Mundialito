@@ -36,6 +36,7 @@ function buildStandings(teams: Team[], matches: Match[]): Row[] {
     const a = table.get(m.teamAId)
     const b = table.get(m.teamBId)
     if (!a || !b) continue
+    if (m.completed === false) continue
 
     a.played++
     b.played++

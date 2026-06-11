@@ -95,6 +95,7 @@ export async function addMatch(input: {
     tournament: input.tournament,
     goalsA: Math.max(0, input.goalsA),
     goalsB: Math.max(0, input.goalsB),
+    completed: true,
     goalScorersA: input.goalScorersA,
     goalScorersB: input.goalScorersB,
   })
@@ -138,6 +139,7 @@ export async function drawMatchups(tournament: string, suddenDeath: boolean) {
           tournament,
           goalsA: 0,
           goalsB: 0,
+          completed: false,
           goalScorersA: [],
           goalScorersB: [],
         })
@@ -161,6 +163,7 @@ export async function drawMatchups(tournament: string, suddenDeath: boolean) {
         tournament,
         goalsA: 0,
         goalsB: 0,
+        completed: false,
         goalScorersA: [],
         goalScorersB: [],
       })
