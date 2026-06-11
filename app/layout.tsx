@@ -10,7 +10,7 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'Fútbol entre Amigos',
+  title: 'Mundialito MennarSas',
   description: 'Organizá jugadores, sorteá equipos, cargá partidos y mirá la tabla de posiciones.',
   generator: 'v0.app',
   icons: {
