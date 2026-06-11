@@ -11,16 +11,16 @@ import { Save, Trash2 } from "lucide-react"
 import { addMatch, deleteMatch } from "@/app/actions/futbol"
 import type { Match, Team } from "@/lib/db/schema"
 
-export function MatchesTab({ teams, matches }: { teams: Team[]; matches: Match[] }) {
-  const [teamA, setTeamA] = useState<string>("")
-  const [teamB, setTeamB] = useState<string>("")
+export function MatchesTab({ teams, matches, tournament }: { teams: Team[]; matches: Match[]; tournament: string }) {
+  const [teamA, setTeamA] = useState<string | null>(null)
+  const [teamB, setTeamB] = useState<string | null>(null)
   const [goalsA, setGoalsA] = useState("0")
   const [goalsB, setGoalsB] = useState("0")
   const [isPending, startTransition] = useTransition()
 
   const teamName = (id: number) => teams.find((t) => t.id === id)?.name ?? "Equipo eliminado"
 
-  const canSave = teamA && teamB && teamA !== teamB
+  const canSave = Boolean(teamA && teamB && teamA !== teamB)
 
   function handleSave() {
     if (!canSave) return
@@ -28,8 +28,11 @@ export function MatchesTab({ teams, matches }: { teams: Team[]; matches: Match[]
       await addMatch({
         teamAId: Number(teamA),
         teamBId: Number(teamB),
+        tournament,
         goalsA: Number(goalsA) || 0,
         goalsB: Number(goalsB) || 0,
+        goalScorersA: [],
+        goalScorersB: [],
       })
       setGoalsA("0")
       setGoalsB("0")
@@ -169,3 +172,15 @@ export function MatchesTab({ teams, matches }: { teams: Team[]; matches: Match[]
     </div>
   )
 }
+
+const nextConfig = {
+  typescript: {
+    ignoreBuildErrors: true,
+  },
+  images: {
+    unoptimized: true,
+  },
+  allowedDevOrigins: ["192.168.20.142"],
+}
+
+export default nextConfig

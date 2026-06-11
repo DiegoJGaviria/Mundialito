@@ -5,18 +5,47 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
-import { Shuffle } from "lucide-react"
-import { drawTeams } from "@/app/actions/futbol"
+import { Badge } from "@/components/ui/badge"
+import { Shuffle, Dices } from "lucide-react"
+import { drawTeams, updateTeamName, drawMatchups } from "@/app/actions/futbol"
 import type { Player, Team } from "@/lib/db/schema"
 
-export function TeamsTab({ players, teams }: { players: Player[]; teams: Team[] }) {
+export function TeamsTab({ players, teams, tournament }: { players: Player[]; teams: Team[]; tournament: string }) {
   const [perTeam, setPerTeam] = useState(4)
+  const [editingId, setEditingId] = useState<number | null>(null)
+  const [editNames, setEditNames] = useState<Record<number, string>>({})
   const [isPending, startTransition] = useTransition()
 
   function handleDraw() {
     startTransition(async () => {
-      await drawTeams(perTeam)
+      await drawTeams(perTeam, tournament)
     })
+  }
+
+  function handleEditClick(team: Team) {
+    setEditingId(team.id)
+    setEditNames({ ...editNames, [team.id]: team.name })
+  }
+
+  function handleSaveName(teamId: number) {
+    const newName = editNames[teamId]?.trim()
+    if (newName && newName !== teams.find((t) => t.id === teamId)?.name) {
+      startTransition(async () => {
+        await updateTeamName(teamId, newName)
+      })
+    }
+    setEditingId(null)
+  }
+
+  function handleDrawMatchups() {
+    startTransition(async () => {
+      await drawMatchups(tournament, false)
+    })
+  }
+
+  const getPlayerNames = (members: string[]) => {
+    if (!Array.isArray(members)) return []
+    return members
   }
 
   return (
@@ -56,27 +85,80 @@ export function TeamsTab({ players, teams }: { players: Player[]; teams: Team[] 
       )}
 
       {teams.length > 0 && (
-        <div className="grid gap-4 sm:grid-cols-2">
-          {teams.map((team) => (
-            <Card key={team.id}>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base text-primary">{team.name}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ul className="flex flex-col gap-1.5">
-                  {team.members.map((member, i) => (
-                    <li key={i} className="flex items-center gap-2 text-sm">
-                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-secondary text-xs text-muted-foreground">
-                        {i + 1}
-                      </span>
-                      {member}
-                    </li>
-                  ))}
-                </ul>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        <>
+          <Card>
+            <CardHeader>
+              <CardTitle>Equipos creados</CardTitle>
+              <CardDescription>Editá los nombres y visualizá los integrantes de cada equipo.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {teams.map((team) => (
+                <div key={team.id} className="rounded-lg border p-4">
+                  <div className="mb-3 flex items-center gap-2">
+                    {editingId === team.id ? (
+                      <div className="flex gap-2">
+                        <Input
+                          value={editNames[team.id] || ""}
+                          onChange={(e) => setEditNames({ ...editNames, [team.id]: e.target.value })}
+                          className="w-40"
+                          autoFocus
+                        />
+                        <Button
+                          size="sm"
+                          onClick={() => handleSaveName(team.id)}
+                          disabled={isPending}
+                        >
+                          Guardar
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setEditingId(null)}
+                        >
+                          Cancelar
+                        </Button>
+                      </div>
+                    ) : (
+                      <>
+                        <h3 className="text-lg font-semibold">{team.name}</h3>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleEditClick(team)}
+                          disabled={isPending}
+                        >
+                          Editar
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {getPlayerNames(team.members).map((member, idx) => (
+                      <Badge key={idx} variant="secondary">
+                        {member}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Sortear confrontaciones</CardTitle>
+              <CardDescription>
+                Genera automáticamente todos los enfrentamientos entre equipos (todos contra todos).
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button onClick={handleDrawMatchups} disabled={isPending || teams.length < 2} className="w-full sm:w-auto">
+                <Dices className="h-4 w-4" />
+                Sortear partidos
+              </Button>
+            </CardContent>
+          </Card>
+        </>
       )}
     </div>
   )

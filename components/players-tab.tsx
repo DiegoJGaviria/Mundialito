@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useTransition } from "react"
+import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -8,7 +9,8 @@ import { Plus, Trash2, Users } from "lucide-react"
 import { addPlayer, deletePlayer } from "@/app/actions/futbol"
 import type { Player } from "@/lib/db/schema"
 
-export function PlayersTab({ players }: { players: Player[] }) {
+export function PlayersTab({ players, tournament }: { players: Player[]; tournament: string }) {
+  const router = useRouter()
   const [name, setName] = useState("")
   const [isPending, startTransition] = useTransition()
 
@@ -17,13 +19,15 @@ export function PlayersTab({ players }: { players: Player[] }) {
     if (!trimmed) return
     setName("")
     startTransition(async () => {
-      await addPlayer(trimmed)
+      await addPlayer(trimmed, tournament)
+      router.refresh()
     })
   }
 
   function handleDelete(id: number) {
     startTransition(async () => {
       await deletePlayer(id)
+      router.refresh()
     })
   }
 
