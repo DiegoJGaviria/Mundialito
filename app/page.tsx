@@ -28,7 +28,7 @@ export default async function Page() {
             </svg>
           </div>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-balance md:text-3xl">Fútbol entre Amigos</h1>
+            <h1 className="text-2xl font-bold tracking-tight text-balance md:text-3xl">Mundialito MennarSas</h1>
             <p className="text-sm text-muted-foreground">Jugadores, equipos, partidos y tabla en un solo lugar.</p>
           </div>
         </header>
