@@ -6,7 +6,6 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Save, Trash2 } from "lucide-react"
 import { addMatch, deleteMatch } from "@/app/actions/futbol"
 import type { Match, Team } from "@/lib/db/schema"
@@ -50,30 +49,30 @@ export function MatchesTab({ teams, matches, tournament }: { teams: Team[]; matc
       <Card>
         <CardHeader>
           <CardTitle>Cargar partido</CardTitle>
-          <CardDescription>Elegí los dos equipos, poné los goles y guardá el resultado.</CardDescription>
-        </CardHeader>
+ </CardHeader>
         <CardContent className="flex flex-col gap-4">
           {teams.length < 2 ? (
             <p className="rounded-lg border border-dashed border-border py-8 text-center text-sm text-muted-foreground">
-              Necesitás al menos 2 equipos. Sorteá los equipos primero.
+          Todavía no hay Equipos cargados.
             </p>
-          ) : (
+           ) : (
             <>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="flex flex-col gap-2">
-                  <Label>Equipo local</Label>
-                  <Select value={teamA} onValueChange={setTeamA}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Elegir equipo" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {teams.map((t) => (
-                        <SelectItem key={t.id} value={String(t.id)} disabled={String(t.id) === teamB}>
-                          {t.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="teamA">Equipo local</Label>
+                  <select
+                    id="teamA"
+                    value={teamA ?? ""}
+                    onChange={(e) => setTeamA(e.target.value || null)}
+                    className="rounded-lg border border-border bg-background px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="">Elegir equipo</option>
+                    {teams.map((t) => (
+                      <option key={t.id} value={String(t.id)} disabled={String(t.id) === teamB}>
+                        {t.name}
+                      </option>
+                    ))}
+                  </select>
                   <Input
                     type="number"
                     min={0}
@@ -84,19 +83,20 @@ export function MatchesTab({ teams, matches, tournament }: { teams: Team[]; matc
                 </div>
 
                 <div className="flex flex-col gap-2">
-                  <Label>Equipo visitante</Label>
-                  <Select value={teamB} onValueChange={setTeamB}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Elegir equipo" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {teams.map((t) => (
-                        <SelectItem key={t.id} value={String(t.id)} disabled={String(t.id) === teamA}>
-                          {t.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="teamB">Equipo visitante</Label>
+                  <select
+                    id="teamB"
+                    value={teamB ?? ""}
+                    onChange={(e) => setTeamB(e.target.value || null)}
+                    className="rounded-lg border border-border bg-background px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="">Elegir equipo</option>
+                    {teams.map((t) => (
+                      <option key={t.id} value={String(t.id)} disabled={String(t.id) === teamA}>
+                        {t.name}
+                      </option>
+                    ))}
+                  </select>
                   <Input
                     type="number"
                     min={0}
@@ -118,8 +118,7 @@ export function MatchesTab({ teams, matches, tournament }: { teams: Team[]; matc
       <Card>
         <CardHeader>
           <CardTitle>Resultados</CardTitle>
-          <CardDescription>El ganador se resalta. Los empates se marcan aparte.</CardDescription>
-        </CardHeader>
+          </CardHeader>
         <CardContent>
           {matches.length === 0 ? (
             <p className="rounded-lg border border-dashed border-border py-8 text-center text-sm text-muted-foreground">

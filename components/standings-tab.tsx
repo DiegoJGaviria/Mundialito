@@ -69,8 +69,72 @@ function buildStandings(teams: Team[], matches: Match[]): Row[] {
   })
 }
 
-export function StandingsTab({ teams, matches }: { teams: Team[]; matches: Match[] }) {
+function buildBracket(teams: Team[], matches: Match[]) {
+  const getName = (id: number) => teams.find((team) => team.id === id)?.name ?? "Equipo eliminado"
+
+  return [...matches]
+    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+    .map((match) => {
+      const teamA = getName(match.teamAId)
+      const teamB = getName(match.teamBId)
+      const winner = match.goalsA > match.goalsB ? teamA : match.goalsB > match.goalsA ? teamB : null
+      return { match, teamA, teamB, winner }
+    })
+}
+
+export function StandingsTab({
+  teams,
+  matches,
+  matchMode,
+}: {
+  teams: Team[]
+  matches: Match[]
+  matchMode: "roundRobin" | "suddenDeath"
+}) {
   const rows = buildStandings(teams, matches)
+  const bracket = buildBracket(teams, matches)
+
+  if (matchMode === "suddenDeath") {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Tabla de muerte súbita</CardTitle>
+          <CardDescription>
+            Cada partido define un ganador que avanza en el bracket.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {bracket.length === 0 ? (
+            <p className="rounded-lg border border-dashed border-border py-8 text-center text-sm text-muted-foreground">
+              Cargá resultados para ver quién avanza en el bracket.
+            </p>
+          ) : (
+            <div className="space-y-4">
+              {bracket.map(({ match, teamA, teamB, winner }, index) => (
+                <div key={match.id} className="rounded-xl border border-border p-4 shadow-sm">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="grid gap-2">
+                      <span className="text-sm text-muted-foreground">Partido {index + 1}</span>
+                      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-3">
+                        <span className="font-medium">{teamA}</span>
+                        <span className="rounded-full bg-muted px-3 py-1 text-sm font-semibold">
+                          {match.goalsA} - {match.goalsB}
+                        </span>
+                        <span className="font-medium">{teamB}</span>
+                      </div>
+                    </div>
+                    <div className="rounded-2xl bg-background p-3 text-sm font-semibold text-primary">
+                      {winner ? `Avanza: ${winner}` : "Empate - definir ganador"}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    )
+  }
 
   return (
     <Card>

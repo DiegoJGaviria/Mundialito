@@ -1,16 +1,28 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useState, useTransition, type Dispatch, type SetStateAction } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Shuffle, Dices } from "lucide-react"
-import { drawTeams, updateTeamName, drawMatchups } from "@/app/actions/futbol"
+import { Shuffle, Dices, Trash2 } from "lucide-react"
+import { drawTeams, updateTeamName, drawMatchups, clearTournament } from "@/app/actions/futbol"
 import type { Player, Team } from "@/lib/db/schema"
 
-export function TeamsTab({ players, teams, tournament }: { players: Player[]; teams: Team[]; tournament: string }) {
+export function TeamsTab({
+  players,
+  teams,
+  tournament,
+  matchMode,
+  setMatchMode,
+}: {
+  players: Player[]
+  teams: Team[]
+  tournament: string
+  matchMode: "roundRobin" | "suddenDeath"
+  setMatchMode: React.Dispatch<React.SetStateAction<"roundRobin" | "suddenDeath">>
+}) {
   const [perTeam, setPerTeam] = useState(4)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editNames, setEditNames] = useState<Record<number, string>>({})
@@ -39,7 +51,13 @@ export function TeamsTab({ players, teams, tournament }: { players: Player[]; te
 
   function handleDrawMatchups() {
     startTransition(async () => {
-      await drawMatchups(tournament, false)
+      await drawMatchups(tournament, matchMode === "suddenDeath")
+    })
+  }
+
+  function handleClearTournament() {
+    startTransition(async () => {
+      await clearTournament(tournament)
     })
   }
 
@@ -53,11 +71,7 @@ export function TeamsTab({ players, teams, tournament }: { players: Player[]; te
       <Card>
         <CardHeader>
           <CardTitle>Sortear equipos</CardTitle>
-          <CardDescription>
-            Elegí cuántos jugadores por equipo y sorteá. Podés volver a sortear cuando quieras (esto reinicia los
-            partidos cargados).
-          </CardDescription>
-        </CardHeader>
+         </CardHeader>
         <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-end">
           <div className="flex flex-col gap-2">
             <Label htmlFor="perTeam">Jugadores por equipo</Label>
@@ -89,8 +103,7 @@ export function TeamsTab({ players, teams, tournament }: { players: Player[]; te
           <Card>
             <CardHeader>
               <CardTitle>Equipos creados</CardTitle>
-              <CardDescription>Editá los nombres y visualizá los integrantes de cada equipo.</CardDescription>
-            </CardHeader>
+</CardHeader>
             <CardContent className="space-y-4">
               {teams.map((team) => (
                 <div key={team.id} className="rounded-lg border p-4">
@@ -147,14 +160,35 @@ export function TeamsTab({ players, teams, tournament }: { players: Player[]; te
           <Card>
             <CardHeader>
               <CardTitle>Sortear confrontaciones</CardTitle>
-              <CardDescription>
-                Genera automáticamente todos los enfrentamientos entre equipos (todos contra todos).
-              </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="flex flex-col gap-4">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="matchMode">Modo de sorteo</Label>
+                  <select
+                    id="matchMode"
+                    value={matchMode}
+                    onChange={(e) => setMatchMode(e.target.value as "roundRobin" | "suddenDeath")}
+                    className="rounded-lg border border-border bg-background px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="roundRobin">Todos contra todos</option>
+                    <option value="suddenDeath">Muerte súbita</option>
+                  </select>
+                </div>
+                
+              </div>
               <Button onClick={handleDrawMatchups} disabled={isPending || teams.length < 2} className="w-full sm:w-auto">
                 <Dices className="h-4 w-4" />
                 Sortear partidos
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleClearTournament}
+                disabled={isPending || teams.length === 0}
+                className="w-full sm:w-auto"
+              >
+                <Trash2 className="h-4 w-4" />
+                Limpiar torneo
               </Button>
             </CardContent>
           </Card>

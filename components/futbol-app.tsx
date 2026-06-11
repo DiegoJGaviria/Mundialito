@@ -23,6 +23,7 @@ export function FutbolApp({
   initialMatches: Match[]
 }) {
   const [tournament, setTournament] = useState<string>(tournaments[0].value)
+  const [matchMode, setMatchMode] = useState<"roundRobin" | "suddenDeath">("roundRobin")
 
   const players = useMemo(
     () => initialPlayers.filter((player) => player.tournament === tournament),
@@ -43,8 +44,7 @@ export function FutbolApp({
     <div className="space-y-6">
       <div className="flex flex-col gap-3 rounded-xl border border-border bg-background p-4 md:flex-row md:items-center md:justify-between md:p-5">
         <div>
-          <p className="text-sm text-muted-foreground">Seleccioná el torneo que querés administrar.</p>
-          <h2 className="text-lg font-semibold">{tournaments.find((item) => item.value === tournament)?.label}</h2>
+        <h2 className="text-lg font-semibold">{tournaments.find((item) => item.value === tournament)?.label}</h2>
         </div>
 
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -78,7 +78,13 @@ export function FutbolApp({
         </TabsContent>
 
         <TabsContent value="equipos" className="mt-6">
-          <TeamsTab players={players} teams={teams} tournament={tournament} />
+          <TeamsTab
+            players={players}
+            teams={teams}
+            tournament={tournament}
+            matchMode={matchMode}
+            setMatchMode={setMatchMode}
+          />
         </TabsContent>
 
         <TabsContent value="partidos" className="mt-6">
@@ -86,7 +92,7 @@ export function FutbolApp({
         </TabsContent>
 
         <TabsContent value="tabla" className="mt-6">
-          <StandingsTab teams={teams} matches={matches} />
+          <StandingsTab teams={teams} matches={matches} matchMode={matchMode} />
         </TabsContent>
       </Tabs>
     </div>

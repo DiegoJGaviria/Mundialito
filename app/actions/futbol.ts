@@ -18,6 +18,17 @@ export async function addPlayer(name: string, tournament: string) {
   revalidatePath("/")
 }
 
+export async function addPlayersBulk(names: string[], tournament: string) {
+  const playersToInsert = names
+    .map((name) => name.trim())
+    .filter(Boolean)
+    .map((name) => ({ name, tournament }))
+
+  if (playersToInsert.length === 0) return
+  await db.insert(players).values(playersToInsert)
+  revalidatePath("/")
+}
+
 export async function deletePlayer(id: number) {
   await db.delete(players).where(eq(players.id, id))
   revalidatePath("/")
@@ -111,13 +122,19 @@ export async function drawMatchups(tournament: string, suddenDeath: boolean) {
   // Limpiar partidos anteriores del torneo
   await db.delete(matches).where(eq(matches.tournament, tournament))
 
+  const shuffledTeams = [...allTeams]
+  for (let i = shuffledTeams.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[shuffledTeams[i], shuffledTeams[j]] = [shuffledTeams[j], shuffledTeams[i]]
+  }
+
   if (suddenDeath) {
-    // Emparejar en bracket simple: 1-2, 3-4, ...
-    for (let i = 0; i < allTeams.length; i += 2) {
-      if (i + 1 < allTeams.length) {
+    // Emparejar al azar en bracket simple: 1-2, 3-4, ...
+    for (let i = 0; i < shuffledTeams.length; i += 2) {
+      if (i + 1 < shuffledTeams.length) {
         await db.insert(matches).values({
-          teamAId: allTeams[i].id,
-          teamBId: allTeams[i + 1].id,
+          teamAId: shuffledTeams[i].id,
+          teamBId: shuffledTeams[i + 1].id,
           tournament,
           goalsA: 0,
           goalsB: 0,
@@ -127,20 +144,34 @@ export async function drawMatchups(tournament: string, suddenDeath: boolean) {
       }
     }
   } else {
-    for (let i = 0; i < allTeams.length; i++) {
-      for (let j = i + 1; j < allTeams.length; j++) {
-        await db.insert(matches).values({
-          teamAId: allTeams[i].id,
-          teamBId: allTeams[j].id,
-          tournament,
-          goalsA: 0,
-          goalsB: 0,
-          goalScorersA: [],
-          goalScorersB: [],
+    const matchups = [] as Array<{ teamAId: number; teamBId: number }>
+    for (let i = 0; i < shuffledTeams.length; i++) {
+      for (let j = i + 1; j < shuffledTeams.length; j++) {
+        matchups.push({
+          teamAId: shuffledTeams[i].id,
+          teamBId: shuffledTeams[j].id,
         })
       }
     }
+
+    for (const matchup of matchups) {
+      await db.insert(matches).values({
+        teamAId: matchup.teamAId,
+        teamBId: matchup.teamBId,
+        tournament,
+        goalsA: 0,
+        goalsB: 0,
+        goalScorersA: [],
+        goalScorersB: [],
+      })
+    }
   }
 
+  revalidatePath("/")
+}
+
+export async function clearTournament(tournament: string) {
+  await db.delete(matches).where(eq(matches.tournament, tournament))
+  await db.delete(teams).where(eq(teams.tournament, tournament))
   revalidatePath("/")
 }

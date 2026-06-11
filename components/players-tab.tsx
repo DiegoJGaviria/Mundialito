@@ -6,12 +6,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Plus, Trash2, Users } from "lucide-react"
-import { addPlayer, deletePlayer } from "@/app/actions/futbol"
+import { addPlayer, addPlayersBulk, deletePlayer } from "@/app/actions/futbol"
 import type { Player } from "@/lib/db/schema"
 
 export function PlayersTab({ players, tournament }: { players: Player[]; tournament: string }) {
   const router = useRouter()
   const [name, setName] = useState("")
+  const [bulkText, setBulkText] = useState("")
   const [isPending, startTransition] = useTransition()
 
   function handleAdd() {
@@ -20,6 +21,20 @@ export function PlayersTab({ players, tournament }: { players: Player[]; tournam
     setName("")
     startTransition(async () => {
       await addPlayer(trimmed, tournament)
+      router.refresh()
+    })
+  }
+
+  function handleBulkUpload() {
+    const names = bulkText
+      .split(/[,\r\n]+/)
+      .map((value) => value.trim())
+      .filter(Boolean)
+
+    if (names.length === 0) return
+    setBulkText("")
+    startTransition(async () => {
+      await addPlayersBulk(names, tournament)
       router.refresh()
     })
   }
@@ -35,7 +50,7 @@ export function PlayersTab({ players, tournament }: { players: Player[]; tournam
     <Card>
       <CardHeader>
         <CardTitle>Jugadores</CardTitle>
-        <CardDescription>Agregá a todos los participantes. Presioná Enter o el botón para sumar.</CardDescription>
+        <CardDescription>Agregá a todos los participantes.</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <div className="flex gap-2">
@@ -53,6 +68,8 @@ export function PlayersTab({ players, tournament }: { players: Player[]; tournam
             Agregar
           </Button>
         </div>
+
+        
 
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Users className="h-4 w-4" />
