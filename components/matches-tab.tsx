@@ -6,8 +6,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Save, Trash2 } from "lucide-react"
-import { addMatch, deleteMatch } from "@/app/actions/futbol"
+import { Save, Trash2, Edit2, X } from "lucide-react"
+import { addMatch, deleteMatch, updateMatch } from "@/app/actions/futbol"
 import type { Match, Team } from "@/lib/db/schema"
 
 export function MatchesTab({ teams, matches, tournament }: { teams: Team[]; matches: Match[]; tournament: string }) {
@@ -15,6 +15,9 @@ export function MatchesTab({ teams, matches, tournament }: { teams: Team[]; matc
   const [teamB, setTeamB] = useState<string | null>(null)
   const [goalsA, setGoalsA] = useState("0")
   const [goalsB, setGoalsB] = useState("0")
+  const [editingId, setEditingId] = useState<number | null>(null)
+  const [editGoalsA, setEditGoalsA] = useState("0")
+  const [editGoalsB, setEditGoalsB] = useState("0")
   const [isPending, startTransition] = useTransition()
 
   const teamName = (id: number) => teams.find((t) => t.id === id)?.name ?? "Equipo eliminado"
@@ -35,6 +38,8 @@ export function MatchesTab({ teams, matches, tournament }: { teams: Team[]; matc
       })
       setGoalsA("0")
       setGoalsB("0")
+      setTeamA(null)
+      setTeamB(null)
     })
   }
 
@@ -42,6 +47,25 @@ export function MatchesTab({ teams, matches, tournament }: { teams: Team[]; matc
     startTransition(async () => {
       await deleteMatch(id)
     })
+  }
+
+  function handleEditClick(match: Match) {
+    setEditingId(match.id)
+    setEditGoalsA(String(match.goalsA))
+    setEditGoalsB(String(match.goalsB))
+  }
+
+  function handleSaveEdit(id: number) {
+    startTransition(async () => {
+      await updateMatch(id, Number(editGoalsA) || 0, Number(editGoalsB) || 0)
+      setEditingId(null)
+    })
+  }
+
+  function handleCancelEdit() {
+    setEditingId(null)
+    setEditGoalsA("0")
+    setEditGoalsB("0")
   }
 
   return (
@@ -130,37 +154,89 @@ export function MatchesTab({ teams, matches, tournament }: { teams: Team[]; matc
                 const aWins = m.goalsA > m.goalsB
                 const bWins = m.goalsB > m.goalsA
                 const draw = m.goalsA === m.goalsB
+                const isEditing = editingId === m.id
+
                 return (
                   <li
                     key={m.id}
                     className="flex items-center gap-3 rounded-lg border border-border bg-secondary/40 px-3 py-2"
                   >
-                    <div className="grid flex-1 grid-cols-[1fr_auto_1fr] items-center gap-2">
-                      <span className={`text-right text-sm font-medium ${aWins ? "text-primary" : ""}`}>
-                        {teamName(m.teamAId)}
-                      </span>
-                      <span className="rounded-md bg-background px-2 py-1 text-center font-mono text-sm font-semibold tabular-nums">
-                        {m.goalsA} - {m.goalsB}
-                      </span>
-                      <span className={`text-left text-sm font-medium ${bWins ? "text-primary" : ""}`}>
-                        {teamName(m.teamBId)}
-                      </span>
-                    </div>
-                    {draw && (
-                      <Badge variant="secondary" className="hidden sm:inline-flex">
-                        Empate
-                      </Badge>
+                    {isEditing ? (
+                      <div className="flex flex-1 items-center gap-2">
+                        <span className="text-right text-sm font-medium">{teamName(m.teamAId)}</span>
+                        <Input
+                          type="number"
+                          min={0}
+                          value={editGoalsA}
+                          onChange={(e) => setEditGoalsA(e.target.value)}
+                          className="h-8 w-16 text-center"
+                        />
+                        <span className="text-xs">-</span>
+                        <Input
+                          type="number"
+                          min={0}
+                          value={editGoalsB}
+                          onChange={(e) => setEditGoalsB(e.target.value)}
+                          className="h-8 w-16 text-center"
+                        />
+                        <span className="text-left text-sm font-medium">{teamName(m.teamBId)}</span>
+                        <Button
+                          size="sm"
+                          onClick={() => handleSaveEdit(m.id)}
+                          disabled={isPending}
+                          className="ml-auto h-8"
+                        >
+                          Guardar
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={handleCancelEdit}
+                          className="h-8"
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="grid flex-1 grid-cols-[1fr_auto_1fr] items-center gap-2">
+                          <span className={`text-right text-sm font-medium ${aWins ? "text-primary" : ""}`}>
+                            {teamName(m.teamAId)}
+                          </span>
+                          <span className="rounded-md bg-background px-2 py-1 text-center font-mono text-sm font-semibold tabular-nums">
+                            {m.goalsA} - {m.goalsB}
+                          </span>
+                          <span className={`text-left text-sm font-medium ${bWins ? "text-primary" : ""}`}>
+                            {teamName(m.teamBId)}
+                          </span>
+                        </div>
+                        {draw && (
+                          <Badge variant="secondary" className="hidden sm:inline-flex">
+                            Empate
+                          </Badge>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:text-primary"
+                          onClick={() => handleEditClick(m)}
+                          disabled={isPending}
+                          aria-label="Editar partido"
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                          onClick={() => handleDelete(m.id)}
+                          disabled={isPending}
+                          aria-label="Eliminar partido"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </>
                     )}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                      onClick={() => handleDelete(m.id)}
-                      disabled={isPending}
-                      aria-label="Eliminar partido"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
                   </li>
                 )
               })}

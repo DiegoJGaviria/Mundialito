@@ -6,8 +6,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Shuffle, Dices, Trash2 } from "lucide-react"
-import { drawTeams, updateTeamName, drawMatchups, clearTournament } from "@/app/actions/futbol"
+import { Shuffle, Dices, Trash2, X } from "lucide-react"
+import { drawTeams, updateTeamName, drawMatchups, clearTournament, updateTeamMembers } from "@/app/actions/futbol"
 import type { Player, Team } from "@/lib/db/schema"
 
 export function TeamsTab({
@@ -23,7 +23,10 @@ export function TeamsTab({
 }) {
   const [perTeam, setPerTeam] = useState(4)
   const [editingId, setEditingId] = useState<number | null>(null)
+  const [editingMembersId, setEditingMembersId] = useState<number | null>(null)
   const [editNames, setEditNames] = useState<Record<number, string>>({})
+  const [editMembers, setEditMembers] = useState<Record<number, string[]>>({})
+  const [newMemberInput, setNewMemberInput] = useState<Record<number, string>>({})
   const [isPending, startTransition] = useTransition()
 
   function handleDraw() {
@@ -45,6 +48,39 @@ export function TeamsTab({
       })
     }
     setEditingId(null)
+  }
+
+  function handleEditMembersClick(team: Team) {
+    setEditingMembersId(team.id)
+    setEditMembers({ ...editMembers, [team.id]: [...(team.members || [])] })
+    setNewMemberInput({ ...newMemberInput, [team.id]: "" })
+  }
+
+  function handleAddMember(teamId: number) {
+    const newMember = newMemberInput[teamId]?.trim()
+    if (newMember) {
+      const currentMembers = editMembers[teamId] || []
+      setEditMembers({ ...editMembers, [teamId]: [...currentMembers, newMember] })
+      setNewMemberInput({ ...newMemberInput, [teamId]: "" })
+    }
+  }
+
+  function handleRemoveMember(teamId: number, index: number) {
+    const currentMembers = editMembers[teamId] || []
+    setEditMembers({
+      ...editMembers,
+      [teamId]: currentMembers.filter((_, i) => i !== index),
+    })
+  }
+
+  function handleSaveMembers(teamId: number) {
+    const members = editMembers[teamId] || []
+    if (members.length > 0) {
+      startTransition(async () => {
+        await updateTeamMembers(teamId, members)
+      })
+    }
+    setEditingMembersId(null)
   }
 
   function handleDrawMatchups() {
@@ -138,17 +174,87 @@ export function TeamsTab({
                           onClick={() => handleEditClick(team)}
                           disabled={isPending}
                         >
-                          Editar
+                          Editar nombre
                         </Button>
                       </>
                     )}
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    {getPlayerNames(team.members).map((member, idx) => (
-                      <Badge key={idx} variant="secondary">
-                        {member}
-                      </Badge>
-                    ))}
+                  
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">Participantes</label>
+                      {editingMembersId === team.id ? (
+                        <div className="mt-2 space-y-3 rounded-lg bg-secondary/40 p-3">
+                          <div className="flex flex-wrap gap-2">
+                            {(editMembers[team.id] || []).map((member, idx) => (
+                              <Badge key={idx} variant="default" className="flex items-center gap-1">
+                                {member}
+                                <button
+                                  onClick={() => handleRemoveMember(team.id, idx)}
+                                  className="ml-1 hover:text-white"
+                                >
+                                  <X className="h-3 w-3" />
+                                </button>
+                              </Badge>
+                            ))}
+                          </div>
+                          <div className="flex gap-2">
+                            <Input
+                              placeholder="Nuevo participante"
+                              value={newMemberInput[team.id] || ""}
+                              onChange={(e) => setNewMemberInput({ ...newMemberInput, [team.id]: e.target.value })}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  handleAddMember(team.id)
+                                }
+                              }}
+                              className="h-8 text-sm"
+                            />
+                            <Button
+                              size="sm"
+                              onClick={() => handleAddMember(team.id)}
+                              className="h-8"
+                            >
+                              Agregar
+                            </Button>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              onClick={() => handleSaveMembers(team.id)}
+                              disabled={isPending}
+                              variant="default"
+                            >
+                              Guardar
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setEditingMembersId(null)}
+                            >
+                              Cancelar
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {getPlayerNames(team.members).map((member, idx) => (
+                            <Badge key={idx} variant="secondary">
+                              {member}
+                            </Badge>
+                          ))}
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleEditMembersClick(team)}
+                            disabled={isPending}
+                            className="ml-2 h-6"
+                          >
+                            Editar participantes
+                          </Button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}

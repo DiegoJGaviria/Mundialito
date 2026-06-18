@@ -107,12 +107,26 @@ export async function deleteMatch(id: number) {
   revalidatePath("/")
 }
 
+export async function updateMatch(id: number, goalsA: number, goalsB: number) {
+  await db.update(matches).set({ goalsA: Math.max(0, goalsA), goalsB: Math.max(0, goalsB) }).where(eq(matches.id, id))
+  revalidatePath("/")
+}
+
 // ---------- Actualizar equipos ----------
 
 export async function updateTeamName(teamId: number, newName: string) {
   const trimmed = newName.trim()
   if (!trimmed) return
   await db.update(teams).set({ name: trimmed }).where(eq(teams.id, teamId))
+  revalidatePath("/")
+}
+
+export async function updateTeamMembers(teamId: number, newMembers: string[]) {
+  const cleanedMembers = newMembers
+    .map((m) => m.trim())
+    .filter(Boolean)
+
+  await db.update(teams).set({ members: cleanedMembers }).where(eq(teams.id, teamId))
   revalidatePath("/")
 }
 
@@ -191,4 +205,267 @@ export async function clearTournament(tournament: string) {
   await db.delete(matches).where(eq(matches.tournament, tournament))
   await db.delete(teams).where(eq(teams.tournament, tournament))
   revalidatePath("/")
+}
+
+// Obtener ganadores de una ronda de ida y vuelta
+export async function playNextRound(tournament: string) {
+  const allTeams = await db.select().from(teams).where(eq(teams.tournament, tournament))
+  const allMatches = await db.select().from(matches).where(eq(matches.tournament, tournament))
+
+  // Agrupar partidos por enfrentamiento
+  const pairMap = new Map<string, { teamAId: number; teamBId: number; matches: typeof allMatches }>()
+
+  for (const match of allMatches) {
+    const [teamAId, teamBId] = [match.teamAId, match.teamBId].sort((a, b) => a - b)
+    const key = `${teamAId}-${teamBId}`
+    const existing = pairMap.get(key)
+
+    if (existing) {
+      existing.matches.push(match)
+    } else {
+      pairMap.set(key, {
+        teamAId,
+        teamBId,
+        matches: [match],
+      })
+    }
+  }
+
+  // Extraer ganadores
+  const winners: { teamId: number; team: typeof allTeams[0] }[] = []
+
+  for (const pair of pairMap.values()) {
+    let aggregateA = 0
+    let aggregateB = 0
+
+    for (const match of pair.matches) {
+      if (match.teamAId === pair.teamAId && match.teamBId === pair.teamBId) {
+        aggregateA += match.goalsA
+        aggregateB += match.goalsB
+      } else {
+        aggregateA += match.goalsB
+        aggregateB += match.goalsA
+      }
+    }
+
+    let winnerId: number | null = null
+    if (aggregateA > aggregateB) {
+      winnerId = pair.teamAId
+    } else if (aggregateB > aggregateA) {
+      winnerId = pair.teamBId
+    }
+
+    if (winnerId) {
+      const winnerTeam = allTeams.find((t) => t.id === winnerId)
+      if (winnerTeam) {
+        winners.push({ teamId: winnerId, team: winnerTeam })
+      }
+    }
+  }
+
+  // Crear nuevo torneo con los ganadores
+  // Si es round2, crea round3, etc.
+  let newTournament = tournament
+  if (tournament.includes("_round")) {
+    const roundNum = parseInt(tournament.split("_round")[1]) || 2
+    const baseName = tournament.split("_round")[0]
+    newTournament = `${baseName}_round${roundNum + 1}`
+  } else {
+    newTournament = `${tournament}_round2`
+  }
+
+  // Limpiar partidos y equipos del nuevo torneo si existe
+  await db.delete(matches).where(eq(matches.tournament, newTournament))
+  await db.delete(teams).where(eq(teams.tournament, newTournament))
+
+  // Crear equipos con los ganadores
+  if (winners.length > 0) {
+    await db.insert(teams).values(
+      winners.map((w) => ({
+        name: w.team.name,
+        tournament: newTournament,
+        members: w.team.members,
+      })),
+    )
+
+    // Sortear automáticamente los matchups de la nueva ronda
+    const newTeams = await db.select().from(teams).where(eq(teams.tournament, newTournament))
+
+    // Detectar si es muerte súbita o round robin basándose en el torneo base
+    const baseTournament = tournament.includes("_round") ? tournament.split("_round")[0] : tournament
+    const isSuddenDeath = baseTournament === "hombres"
+
+    const shuffledTeams = [...newTeams]
+    for (let i = shuffledTeams.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[shuffledTeams[i], shuffledTeams[j]] = [shuffledTeams[j], shuffledTeams[i]]
+    }
+
+    if (isSuddenDeath) {
+      // Emparejar al azar en bracket de ida y vuelta: 1-2, 3-4, ...
+      for (let i = 0; i < shuffledTeams.length; i += 2) {
+        if (i + 1 < shuffledTeams.length) {
+          const teamA = shuffledTeams[i]
+          const teamB = shuffledTeams[i + 1]
+
+          await db.insert(matches).values({
+            teamAId: teamA.id,
+            teamBId: teamB.id,
+            tournament: newTournament,
+            goalsA: 0,
+            goalsB: 0,
+            completed: false,
+            goalScorersA: [],
+            goalScorersB: [],
+          })
+
+          await db.insert(matches).values({
+            teamAId: teamB.id,
+            teamBId: teamA.id,
+            tournament: newTournament,
+            goalsA: 0,
+            goalsB: 0,
+            completed: false,
+            goalScorersA: [],
+            goalScorersB: [],
+          })
+        }
+      }
+    } else {
+      const matchups = [] as Array<{ teamAId: number; teamBId: number }>
+      for (let i = 0; i < shuffledTeams.length; i++) {
+        for (let j = i + 1; j < shuffledTeams.length; j++) {
+          matchups.push({
+            teamAId: shuffledTeams[i].id,
+            teamBId: shuffledTeams[j].id,
+          })
+        }
+      }
+
+      for (const matchup of matchups) {
+        await db.insert(matches).values({
+          teamAId: matchup.teamAId,
+          teamBId: matchup.teamBId,
+          tournament: newTournament,
+          goalsA: 0,
+          goalsB: 0,
+          completed: false,
+          goalScorersA: [],
+          goalScorersB: [],
+        })
+      }
+    }
+  }
+
+  revalidatePath("/")
+  return newTournament
+}
+
+// Crear la final con los ganadores de las semifinales
+export async function createFinal(tournament: string) {
+  const allTeams = await db.select().from(teams).where(eq(teams.tournament, tournament))
+  const allMatches = await db.select().from(matches).where(eq(matches.tournament, tournament))
+
+  // Agrupar partidos por enfrentamiento
+  const pairMap = new Map<string, { teamAId: number; teamBId: number; matches: typeof allMatches }>()
+
+  for (const match of allMatches) {
+    const [teamAId, teamBId] = [match.teamAId, match.teamBId].sort((a, b) => a - b)
+    const key = `${teamAId}-${teamBId}`
+    const existing = pairMap.get(key)
+
+    if (existing) {
+      existing.matches.push(match)
+    } else {
+      pairMap.set(key, {
+        teamAId,
+        teamBId,
+        matches: [match],
+      })
+    }
+  }
+
+  // Extraer ganadores
+  const winners: { teamId: number; team: typeof allTeams[0] }[] = []
+
+  for (const pair of pairMap.values()) {
+    let aggregateA = 0
+    let aggregateB = 0
+
+    for (const match of pair.matches) {
+      if (match.teamAId === pair.teamAId && match.teamBId === pair.teamBId) {
+        aggregateA += match.goalsA
+        aggregateB += match.goalsB
+      } else {
+        aggregateA += match.goalsB
+        aggregateB += match.goalsA
+      }
+    }
+
+    let winnerId: number | null = null
+    if (aggregateA > aggregateB) {
+      winnerId = pair.teamAId
+    } else if (aggregateB > aggregateA) {
+      winnerId = pair.teamBId
+    }
+
+    if (winnerId) {
+      const winnerTeam = allTeams.find((t) => t.id === winnerId)
+      if (winnerTeam) {
+        winners.push({ teamId: winnerId, team: winnerTeam })
+      }
+    }
+  }
+
+  // Crear torneo de final
+  const baseTournament = tournament.includes("_round") ? tournament.split("_round")[0] : tournament
+  const finalTournament = `${baseTournament}_final`
+
+  // Limpiar partidos y equipos de la final si existe
+  await db.delete(matches).where(eq(matches.tournament, finalTournament))
+  await db.delete(teams).where(eq(teams.tournament, finalTournament))
+
+  // Crear equipos con los ganadores
+  if (winners.length >= 2) {
+    await db.insert(teams).values(
+      winners.slice(0, 2).map((w) => ({
+        name: w.team.name,
+        tournament: finalTournament,
+        members: w.team.members,
+      })),
+    )
+
+    // Crear los matchups de la final (ida y vuelta)
+    const finalTeams = await db.select().from(teams).where(eq(teams.tournament, finalTournament))
+    if (finalTeams.length === 2) {
+      const [teamA, teamB] = finalTeams
+
+      // Ida
+      await db.insert(matches).values({
+        teamAId: teamA.id,
+        teamBId: teamB.id,
+        tournament: finalTournament,
+        goalsA: 0,
+        goalsB: 0,
+        completed: false,
+        goalScorersA: [],
+        goalScorersB: [],
+      })
+
+      // Vuelta
+      await db.insert(matches).values({
+        teamAId: teamB.id,
+        teamBId: teamA.id,
+        tournament: finalTournament,
+        goalsA: 0,
+        goalsB: 0,
+        completed: false,
+        goalScorersA: [],
+        goalScorersB: [],
+      })
+    }
+  }
+
+  revalidatePath("/")
+  return finalTournament
 }

@@ -1,7 +1,10 @@
 "use client"
 
+import { useTransition } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Button } from "@/components/ui/button"
+import { playNextRound, createFinal } from "@/app/actions/futbol"
 import type { Match, Team } from "@/lib/db/schema"
 
 type Row = {
@@ -135,58 +138,100 @@ export function StandingsTab({
   teams,
   matches,
   matchMode,
+  tournament,
 }: {
   teams: Team[]
   matches: Match[]
   matchMode: "roundRobin" | "suddenDeath"
+  tournament: string
 }) {
+  const [isPending, startTransition] = useTransition()
   const rows = buildStandings(teams, matches)
   const bracket = buildBracket(teams, matches)
 
+  // Verificar si todos los enfrentamientos tienen ganador (sin empates)
+  const allHaveWinner = bracket.every((b) => b.winner !== null)
+
+  function handlePlayNextRound() {
+    startTransition(async () => {
+      await playNextRound(tournament)
+    })
+  }
+
+  function handleCreateFinal() {
+    startTransition(async () => {
+      await createFinal(tournament)
+    })
+  }
+
   if (matchMode === "suddenDeath") {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Tabla de muerte súbita</CardTitle>
-          <CardDescription>
-            Los resultados se suman en ida y vuelta para definir al ganador por global.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {bracket.length === 0 ? (
-            <p className="rounded-lg border border-dashed border-border py-8 text-center text-sm text-muted-foreground">
-              Cargá resultados para ver quién avanza en el bracket.
-            </p>
-          ) : (
-            <div className="space-y-4">
-              {bracket.map(({ teamA, teamB, matches, aggregateA, aggregateB, winner }, index) => (
-                <div key={`${teamA}-${teamB}-${index}`} className="rounded-xl border border-border p-4 shadow-sm">
-                  <div className="flex flex-col gap-3">
-                    <div className="grid gap-2">
-                      <span className="text-sm text-muted-foreground">Encuentro {index + 1}</span>
-                      <div className="space-y-3">
-                        {matches.map((match) => (
-                          <div key={match.id} className="flex flex-col gap-2 rounded-lg bg-muted/50 p-3 sm:flex-row sm:items-center sm:justify-between">
-                            <span className="font-medium">{getName(teams, match.teamAId)}</span>
-                            <span className="rounded-full bg-background px-3 py-1 text-sm font-semibold">
-                              {match.goalsA} - {match.goalsB}
-                            </span>
-                            <span className="font-medium">{getName(teams, match.teamBId)}</span>
-                          </div>
-                        ))}
+      <div className="space-y-4">
+        <Card>
+          <CardHeader>
+            <CardTitle>Tabla de muerte súbita</CardTitle>
+            <CardDescription>
+              Los resultados se suman en ida y vuelta para definir al ganador por global.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {bracket.length === 0 ? (
+              <p className="rounded-lg border border-dashed border-border py-8 text-center text-sm text-muted-foreground">
+                Cargá resultados para ver quién avanza en el bracket.
+              </p>
+            ) : (
+              <div className="space-y-4">
+                {bracket.map(({ teamA, teamB, matches, aggregateA, aggregateB, winner }, index) => (
+                  <div key={`${teamA}-${teamB}-${index}`} className="rounded-xl border border-border p-4 shadow-sm">
+                    <div className="flex flex-col gap-3">
+                      <div className="grid gap-2">
+                        <span className="text-sm text-muted-foreground">Encuentro {index + 1}</span>
+                        <div className="space-y-3">
+                          {matches.map((match) => (
+                            <div key={match.id} className="flex flex-col gap-2 rounded-lg bg-muted/50 p-3 sm:flex-row sm:items-center sm:justify-between">
+                              <span className="font-medium">{getName(teams, match.teamAId)}</span>
+                              <span className="rounded-full bg-background px-3 py-1 text-sm font-semibold">
+                                {match.goalsA} - {match.goalsB}
+                              </span>
+                              <span className="font-medium">{getName(teams, match.teamBId)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="rounded-2xl bg-background p-3 text-sm font-semibold text-primary">
+                        Global: {teamA} {"("} {aggregateA} - {aggregateB} {")"} {teamB} · {winner ? `Avanza: ${winner}` : "Empate - definir ganador"}
                       </div>
                     </div>
-
-                    <div className="rounded-2xl bg-background p-3 text-sm font-semibold text-primary">
-                      Global: {teamA} {"("} {aggregateA} - {aggregateB} {")"} {teamB} · {winner ? `Avanza: ${winner}` : "Empate - definir ganador"}
-                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {allHaveWinner && bracket.length > 0 && (
+          <Card>
+            <CardContent className="flex flex-col gap-2 sm:flex-row">
+              <Button 
+                onClick={handlePlayNextRound} 
+                disabled={isPending}
+                className="w-full sm:w-auto"
+              >
+                Sortear nuevos partidos
+              </Button>
+              <Button 
+                onClick={handleCreateFinal} 
+                disabled={isPending}
+                variant="secondary"
+                className="w-full sm:w-auto"
+              >
+                Crear Final
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+      </div>
     )
   }
 

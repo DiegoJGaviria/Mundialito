@@ -8,11 +8,6 @@ import { TeamsTab } from "@/components/teams-tab"
 import { MatchesTab } from "@/components/matches-tab"
 import { StandingsTab } from "@/components/standings-tab"
 
-const tournaments = [
-  { value: "hombres", label: "Torneo de hombres" },
-  { value: "mujeres", label: "Torneo de mujeres" },
-]
-
 export function FutbolApp({
   initialPlayers,
   initialTeams,
@@ -22,46 +17,112 @@ export function FutbolApp({
   initialTeams: Team[]
   initialMatches: Match[]
 }) {
-  const [tournament, setTournament] = useState<string>(tournaments[0].value)
-  const matchMode = tournament === "hombres" ? "suddenDeath" : "roundRobin"
+  // Detectar torneos base (hombres, mujeres) y sus fases
+  const tournamentStructure = useMemo(() => {
+    const structure = new Map<string, Set<string>>()
+    
+    for (const team of initialTeams) {
+      let base = team.tournament
+      let phase = "principal"
+      
+      if (team.tournament.includes("_round")) {
+        base = team.tournament.split("_round")[0]
+        phase = "semifinal"
+      } else if (team.tournament.includes("_final")) {
+        base = team.tournament.split("_final")[0]
+        phase = "final"
+      }
+
+      if (base !== "general") {
+        if (!structure.has(base)) {
+          structure.set(base, new Set())
+        }
+        structure.get(base)!.add(phase)
+      }
+    }
+
+    return structure
+  }, [initialTeams])
+
+  const baseTournaments = Array.from(tournamentStructure.keys()).sort((a, b) => {
+    if (a === "hombres") return -1
+    if (b === "hombres") return 1
+    if (a === "mujeres") return -1
+    if (b === "mujeres") return 1
+    return a.localeCompare(b)
+  })
+
+  const [selectedBase, setSelectedBase] = useState<string>(baseTournaments[0] || "hombres")
+  const [selectedPhase, setSelectedPhase] = useState<string>("principal")
+
+  const availablePhases = Array.from(tournamentStructure.get(selectedBase) || ["principal"]).sort((a, b) => {
+    const order: Record<string, number> = { principal: 0, semifinal: 1, final: 2 }
+    return (order[a] || 3) - (order[b] || 3)
+  })
+
+  // Construir el nombre del torneo actual
+  const currentTournament = selectedPhase === "principal" 
+    ? selectedBase 
+    : selectedPhase === "semifinal" 
+    ? `${selectedBase}_round2` 
+    : `${selectedBase}_final`
+
+  const matchMode = selectedBase === "hombres" ? "suddenDeath" : "roundRobin"
 
   const players = useMemo(
-    () => initialPlayers.filter((player) => player.tournament === tournament),
-    [initialPlayers, tournament],
+    () => initialPlayers.filter((player) => player.tournament === selectedBase),
+    [initialPlayers, selectedBase],
   )
 
   const teams = useMemo(
-    () => initialTeams.filter((team) => team.tournament === tournament),
-    [initialTeams, tournament],
+    () => initialTeams.filter((team) => team.tournament === currentTournament),
+    [initialTeams, currentTournament],
   )
 
   const matches = useMemo(
-    () => initialMatches.filter((match) => match.tournament === tournament),
-    [initialMatches, tournament],
+    () => initialMatches.filter((match) => match.tournament === currentTournament),
+    [initialMatches, currentTournament],
   )
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 rounded-xl border border-border bg-background p-4 md:flex-row md:items-center md:justify-between md:p-5">
         <div>
-        <h2 className="text-lg font-semibold">{tournaments.find((item) => item.value === tournament)?.label}</h2>
+          <h2 className="text-lg font-semibold">
+            {selectedBase === "hombres" ? "Torneo de hombres" : selectedBase === "mujeres" ? "Torneo de mujeres" : selectedBase} 
+            {selectedPhase !== "principal" && ` - ${selectedPhase.charAt(0).toUpperCase() + selectedPhase.slice(1)}`}
+          </h2>
         </div>
 
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          {tournaments.map((item) => (
-            <button
-              key={item.value}
-              type="button"
-              className={`rounded-full px-4 py-2 text-sm font-medium transition ${
-                tournament === item.value
-                  ? "bg-primary text-primary-foreground"
-                  : "border border-border bg-muted text-muted-foreground hover:bg-secondary"
-              }`}
-              onClick={() => setTournament(item.value)}
+          <select
+            value={selectedBase}
+            onChange={(e) => {
+              setSelectedBase(e.target.value)
+              setSelectedPhase("principal")
+            }}
+            className="rounded-lg border border-border bg-background px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary"
+          >
+            {baseTournaments.map((base) => (
+              <option key={base} value={base}>
+                {base === "hombres" ? "Torneo de hombres" : base === "mujeres" ? "Torneo de mujeres" : base}
+              </option>
+            ))}
+          </select>
+
+          {availablePhases.length > 0 && (
+            <select
+              value={selectedPhase}
+              onChange={(e) => setSelectedPhase(e.target.value)}
+              className="rounded-lg border border-border bg-background px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary"
             >
-              {item.label}
-            </button>
-          ))}
+              {availablePhases.map((phase) => (
+                <option key={phase} value={phase}>
+                  {phase === "principal" ? "Principal" : phase === "semifinal" ? "Semifinal" : "Final"}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
       </div>
 
@@ -74,19 +135,19 @@ export function FutbolApp({
         </TabsList>
 
         <TabsContent value="jugadores" className="mt-6">
-          <PlayersTab players={players} tournament={tournament} />
+          <PlayersTab players={players} tournament={selectedBase} />
         </TabsContent>
 
         <TabsContent value="equipos" className="mt-6">
-          <TeamsTab players={players} teams={teams} tournament={tournament} matchMode={matchMode} />
+          <TeamsTab players={players} teams={teams} tournament={currentTournament} matchMode={matchMode} />
         </TabsContent>
 
         <TabsContent value="partidos" className="mt-6">
-          <MatchesTab teams={teams} matches={matches} tournament={tournament} />
+          <MatchesTab teams={teams} matches={matches} tournament={currentTournament} />
         </TabsContent>
 
         <TabsContent value="tabla" className="mt-6">
-          <StandingsTab teams={teams} matches={matches} matchMode={matchMode} />
+          <StandingsTab teams={teams} matches={matches} matchMode={matchMode} tournament={currentTournament} />
         </TabsContent>
       </Tabs>
     </div>
