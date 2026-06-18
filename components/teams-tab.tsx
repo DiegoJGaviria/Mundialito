@@ -15,13 +15,11 @@ export function TeamsTab({
   teams,
   tournament,
   matchMode,
-  setMatchMode,
 }: {
   players: Player[]
   teams: Team[]
   tournament: string
   matchMode: "roundRobin" | "suddenDeath"
-  setMatchMode: React.Dispatch<React.SetStateAction<"roundRobin" | "suddenDeath">>
 }) {
   const [perTeam, setPerTeam] = useState(4)
   const [editingId, setEditingId] = useState<number | null>(null)
@@ -165,17 +163,10 @@ export function TeamsTab({
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="flex flex-col gap-2">
                   <Label htmlFor="matchMode">Modo de sorteo</Label>
-                  <select
-                    id="matchMode"
-                    value={matchMode}
-                    onChange={(e) => setMatchMode(e.target.value as "roundRobin" | "suddenDeath")}
-                    className="rounded-lg border border-border bg-background px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                  >
-                    <option value="roundRobin">Todos contra todos</option>
-                    <option value="suddenDeath">Muerte súbita</option>
-                  </select>
+                  <div className="rounded-lg border border-border bg-background px-3 py-3 text-sm text-muted-foreground">
+                    {matchMode === "suddenDeath" ? "Muerte súbita" : "Todos contra todos"}
+                  </div>
                 </div>
-                
               </div>
               <Button onClick={handleDrawMatchups} disabled={isPending || teams.length < 2} className="w-full sm:w-auto">
                 <Dices className="h-4 w-4" />

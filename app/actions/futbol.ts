@@ -130,12 +130,26 @@ export async function drawMatchups(tournament: string, suddenDeath: boolean) {
   }
 
   if (suddenDeath) {
-    // Emparejar al azar en bracket simple: 1-2, 3-4, ...
+    // Emparejar al azar en bracket de ida y vuelta: 1-2, 3-4, ...
     for (let i = 0; i < shuffledTeams.length; i += 2) {
       if (i + 1 < shuffledTeams.length) {
+        const teamA = shuffledTeams[i]
+        const teamB = shuffledTeams[i + 1]
+
         await db.insert(matches).values({
-          teamAId: shuffledTeams[i].id,
-          teamBId: shuffledTeams[i + 1].id,
+          teamAId: teamA.id,
+          teamBId: teamB.id,
+          tournament,
+          goalsA: 0,
+          goalsB: 0,
+          completed: false,
+          goalScorersA: [],
+          goalScorersB: [],
+        })
+
+        await db.insert(matches).values({
+          teamAId: teamB.id,
+          teamBId: teamA.id,
           tournament,
           goalsA: 0,
           goalsB: 0,

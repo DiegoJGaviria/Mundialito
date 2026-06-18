@@ -23,7 +23,7 @@ export function FutbolApp({
   initialMatches: Match[]
 }) {
   const [tournament, setTournament] = useState<string>(tournaments[0].value)
-  const [matchMode, setMatchMode] = useState<"roundRobin" | "suddenDeath">("roundRobin")
+  const matchMode = tournament === "hombres" ? "suddenDeath" : "roundRobin"
 
   const players = useMemo(
     () => initialPlayers.filter((player) => player.tournament === tournament),
@@ -78,13 +78,7 @@ export function FutbolApp({
         </TabsContent>
 
         <TabsContent value="equipos" className="mt-6">
-          <TeamsTab
-            players={players}
-            teams={teams}
-            tournament={tournament}
-            matchMode={matchMode}
-            setMatchMode={setMatchMode}
-          />
+          <TeamsTab players={players} teams={teams} tournament={tournament} matchMode={matchMode} />
         </TabsContent>
 
         <TabsContent value="partidos" className="mt-6">
