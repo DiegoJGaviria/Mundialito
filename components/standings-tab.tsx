@@ -4,8 +4,22 @@ import { useTransition } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { ShieldOff } from "lucide-react"
 import { playNextRound, createFinal } from "@/app/actions/futbol"
 import type { Match, Team } from "@/lib/db/schema"
+
+function TeamLogo({ team }: { team: Team | undefined }) {
+  return (
+    <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-secondary/40">
+      {team?.logoUrl ? (
+        <img src={team.logoUrl} alt="" className="h-full w-full object-cover" />
+      ) : (
+        <ShieldOff className="h-3 w-3 text-muted-foreground" />
+      )}
+    </div>
+  )
+}
 
 type Row = {
   id: number
@@ -77,6 +91,30 @@ function buildStandings(teams: Team[], matches: Match[]): Row[] {
 }
 
 const getName = (teams: Team[], id: number) => teams.find((team) => team.id === id)?.name ?? "Equipo eliminado"
+const getTeam = (teams: Team[], id: number) => teams.find((team) => team.id === id)
+
+type ScorerRow = { player: string; teamName: string; goals: number }
+
+function buildScorers(teams: Team[], matches: Match[]): ScorerRow[] {
+  const map = new Map<string, ScorerRow>()
+  for (const m of matches) {
+    const teamAName = getName(teams, m.teamAId)
+    const teamBName = getName(teams, m.teamBId)
+    for (const player of m.goalScorersA ?? []) {
+      const key = `${player}__${teamAName}`
+      const existing = map.get(key)
+      if (existing) existing.goals++
+      else map.set(key, { player, teamName: teamAName, goals: 1 })
+    }
+    for (const player of m.goalScorersB ?? []) {
+      const key = `${player}__${teamBName}`
+      const existing = map.get(key)
+      if (existing) existing.goals++
+      else map.set(key, { player, teamName: teamBName, goals: 1 })
+    }
+  }
+  return Array.from(map.values()).sort((a, b) => b.goals - a.goals)
+}
 
 function buildBracket(teams: Team[], matches: Match[]) {
   const pairMap = new Map<string, { teamAId: number; teamBId: number; matches: Match[] }>()
@@ -165,6 +203,7 @@ export function StandingsTab({
   }
 
   if (matchMode === "suddenDeath") {
+    const scorers = buildScorers(teams, matches)
     return (
       <div className="space-y-4">
         <Card>
@@ -231,70 +270,150 @@ export function StandingsTab({
             </CardContent>
           </Card>
         )}
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Goleadores</CardTitle>
+            <CardDescription>Ranking de goles individuales en este torneo.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {scorers.length === 0 ? (
+              <p className="rounded-lg border border-dashed border-border py-8 text-center text-sm text-muted-foreground">
+                Todavía no hay goles cargados con goleador.
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-8">#</TableHead>
+                      <TableHead>Jugador</TableHead>
+                      <TableHead>Equipo</TableHead>
+                      <TableHead className="text-center font-semibold">Goles</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {scorers.map((s, i) => (
+                      <TableRow key={`${s.player}-${s.teamName}`}>
+                        <TableCell className="text-muted-foreground">{i + 1}</TableCell>
+                        <TableCell className="font-medium">{s.player}</TableCell>
+                        <TableCell className="text-muted-foreground">{s.teamName}</TableCell>
+                        <TableCell className="text-center font-bold tabular-nums text-primary">⚽ {s.goals}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     )
   }
 
+  const scorers = buildScorers(teams, matches)
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Tabla de posiciones</CardTitle>
-        <CardDescription>3 puntos por victoria, 1 por empate. Se ordena por puntos, diferencia de gol y goles a favor.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        {rows.length === 0 ? (
-          <p className="rounded-lg border border-dashed border-border py-8 text-center text-sm text-muted-foreground">
-            Sorteá los equipos para ver la tabla.
-          </p>
-        ) : (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-8">#</TableHead>
-                  <TableHead>Equipo</TableHead>
-                  <TableHead className="text-center" title="Partidos jugados">
-                    PJ
-                  </TableHead>
-                  <TableHead className="text-center" title="Ganados">
-                    G
-                  </TableHead>
-                  <TableHead className="text-center" title="Empatados">
-                    E
-                  </TableHead>
-                  <TableHead className="text-center" title="Goles a favor">
-                    GF
-                  </TableHead>
-                  <TableHead className="text-center" title="Goles en contra">
-                    GC
-                  </TableHead>
-                  <TableHead className="text-center" title="Diferencia de goles">
-                    GD
-                  </TableHead>
-                  <TableHead className="text-center font-semibold" title="Puntos">
-                    Pts
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rows.map((row, i) => (
-                  <TableRow key={row.id}>
-                    <TableCell className="text-muted-foreground">{i + 1}</TableCell>
-                    <TableCell className="font-medium">{row.name}</TableCell>
-                    <TableCell className="text-center tabular-nums">{row.played}</TableCell>
-                    <TableCell className="text-center tabular-nums">{row.won}</TableCell>
-                    <TableCell className="text-center tabular-nums">{row.drawn}</TableCell>
-                    <TableCell className="text-center tabular-nums">{row.goalsFor}</TableCell>
-                    <TableCell className="text-center tabular-nums">{row.goalsAgainst}</TableCell>
-                    <TableCell className="text-center tabular-nums">{row.goalDifference}</TableCell>
-                    <TableCell className="text-center font-bold tabular-nums text-primary">{row.points}</TableCell>
+    <div className="space-y-4">
+      <Card>
+        <CardHeader>
+          <CardTitle>Tabla de posiciones</CardTitle>
+          <CardDescription>3 puntos por victoria, 1 por empate. Se ordena por puntos, diferencia de gol y goles a favor.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {rows.length === 0 ? (
+            <p className="rounded-lg border border-dashed border-border py-8 text-center text-sm text-muted-foreground">
+              Sorteá los equipos para ver la tabla.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-8">#</TableHead>
+                    <TableHead className="w-8"></TableHead>
+                    <TableHead>Equipo</TableHead>
+                    <TableHead className="text-center" title="Partidos jugados">
+                      PJ
+                    </TableHead>
+                    <TableHead className="text-center" title="Ganados">
+                      G
+                    </TableHead>
+                    <TableHead className="text-center" title="Empatados">
+                      E
+                    </TableHead>
+                    <TableHead className="text-center" title="Goles a favor">
+                      GF
+                    </TableHead>
+                    <TableHead className="text-center" title="Goles en contra">
+                      GC
+                    </TableHead>
+                    <TableHead className="text-center" title="Diferencia de goles">
+                      GD
+                    </TableHead>
+                    <TableHead className="text-center font-semibold" title="Puntos">
+                      Pts
+                    </TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+                </TableHeader>
+                <TableBody>
+                  {rows.map((row, i) => (
+                    <TableRow key={row.id}>
+                      <TableCell className="text-muted-foreground">{i + 1}</TableCell>
+                      <TableCell><TeamLogo team={getTeam(teams, row.id)} /></TableCell>
+                      <TableCell className="font-medium">{row.name}</TableCell>
+                      <TableCell className="text-center tabular-nums">{row.played}</TableCell>
+                      <TableCell className="text-center tabular-nums">{row.won}</TableCell>
+                      <TableCell className="text-center tabular-nums">{row.drawn}</TableCell>
+                      <TableCell className="text-center tabular-nums">{row.goalsFor}</TableCell>
+                      <TableCell className="text-center tabular-nums">{row.goalsAgainst}</TableCell>
+                      <TableCell className="text-center tabular-nums">{row.goalDifference}</TableCell>
+                      <TableCell className="text-center font-bold tabular-nums text-primary">{row.points}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Goleadores</CardTitle>
+          <CardDescription>Ranking de goles individuales en este torneo.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {scorers.length === 0 ? (
+            <p className="rounded-lg border border-dashed border-border py-8 text-center text-sm text-muted-foreground">
+              Todavía no hay goles cargados con goleador.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-8">#</TableHead>
+                    <TableHead>Jugador</TableHead>
+                    <TableHead>Equipo</TableHead>
+                    <TableHead className="text-center font-semibold">Goles</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {scorers.map((s, i) => (
+                    <TableRow key={`${s.player}-${s.teamName}`}>
+                      <TableCell className="text-muted-foreground">{i + 1}</TableCell>
+                      <TableCell className="font-medium">{s.player}</TableCell>
+                      <TableCell className="text-muted-foreground">{s.teamName}</TableCell>
+                      <TableCell className="text-center font-bold tabular-nums text-primary">⚽ {s.goals}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   )
 }

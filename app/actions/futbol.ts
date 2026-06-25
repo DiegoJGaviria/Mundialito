@@ -1,13 +1,32 @@
 "use server"
 
 import { db } from "@/lib/db"
-import { matches, players, teams } from "@/lib/db/schema"
-import { asc, desc, eq } from "drizzle-orm"
+import { matches, players, teams, type CardEntry } from "@/lib/db/schema"
+import { asc, desc, eq, sql } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
+
+// Migración idempotente: agrega columnas nuevas si no existen todavía.
+// Se ejecuta una sola vez por instancia (cache en memoria) y no falla
+// la operación principal si ya están creadas.
+let migrated = false
+async function ensureSchema() {
+  if (migrated) return
+  try {
+    await db.execute(sql`ALTER TABLE teams ADD COLUMN IF NOT EXISTS logo_url text`)
+    await db.execute(sql`ALTER TABLE matches ADD COLUMN IF NOT EXISTS cards_a jsonb NOT NULL DEFAULT '[]'`)
+    await db.execute(sql`ALTER TABLE matches ADD COLUMN IF NOT EXISTS cards_b jsonb NOT NULL DEFAULT '[]'`)
+    await db.execute(sql`ALTER TABLE matches ADD COLUMN IF NOT EXISTS fouls_a integer NOT NULL DEFAULT 0`)
+    await db.execute(sql`ALTER TABLE matches ADD COLUMN IF NOT EXISTS fouls_b integer NOT NULL DEFAULT 0`)
+    migrated = true
+  } catch (e) {
+    console.error("ensureSchema failed", e)
+  }
+}
 
 // ---------- Jugadores ----------
 
 export async function getPlayers() {
+  await ensureSchema()
   return db.select().from(players).orderBy(asc(players.name))
 }
 
@@ -37,6 +56,7 @@ export async function deletePlayer(id: number) {
 // ---------- Equipos ----------
 
 export async function getTeams() {
+  await ensureSchema()
   return db.select().from(teams).orderBy(asc(teams.id))
 }
 
@@ -76,6 +96,7 @@ export async function drawTeams(playersPerTeam: number, tournament: string) {
 // ---------- Partidos ----------
 
 export async function getMatches() {
+  await ensureSchema()
   return db.select().from(matches).orderBy(desc(matches.createdAt))
 }
 
@@ -87,6 +108,10 @@ export async function addMatch(input: {
   goalsB: number
   goalScorersA: string[]
   goalScorersB: string[]
+  cardsA?: CardEntry[]
+  cardsB?: CardEntry[]
+  foulsA?: number
+  foulsB?: number
 }) {
   if (input.teamAId === input.teamBId) return
   await db.insert(matches).values({
@@ -98,6 +123,10 @@ export async function addMatch(input: {
     completed: true,
     goalScorersA: input.goalScorersA,
     goalScorersB: input.goalScorersB,
+    cardsA: input.cardsA ?? [],
+    cardsB: input.cardsB ?? [],
+    foulsA: Math.max(0, input.foulsA ?? 0),
+    foulsB: Math.max(0, input.foulsB ?? 0),
   })
   revalidatePath("/")
 }
@@ -107,8 +136,32 @@ export async function deleteMatch(id: number) {
   revalidatePath("/")
 }
 
-export async function updateMatch(id: number, goalsA: number, goalsB: number) {
-  await db.update(matches).set({ goalsA: Math.max(0, goalsA), goalsB: Math.max(0, goalsB) }).where(eq(matches.id, id))
+export async function updateMatch(
+  id: number,
+  data: {
+    goalsA: number
+    goalsB: number
+    goalScorersA?: string[]
+    goalScorersB?: string[]
+    cardsA?: CardEntry[]
+    cardsB?: CardEntry[]
+    foulsA?: number
+    foulsB?: number
+  },
+) {
+  await db
+    .update(matches)
+    .set({
+      goalsA: Math.max(0, data.goalsA),
+      goalsB: Math.max(0, data.goalsB),
+      ...(data.goalScorersA !== undefined ? { goalScorersA: data.goalScorersA } : {}),
+      ...(data.goalScorersB !== undefined ? { goalScorersB: data.goalScorersB } : {}),
+      ...(data.cardsA !== undefined ? { cardsA: data.cardsA } : {}),
+      ...(data.cardsB !== undefined ? { cardsB: data.cardsB } : {}),
+      ...(data.foulsA !== undefined ? { foulsA: Math.max(0, data.foulsA) } : {}),
+      ...(data.foulsB !== undefined ? { foulsB: Math.max(0, data.foulsB) } : {}),
+    })
+    .where(eq(matches.id, id))
   revalidatePath("/")
 }
 
@@ -127,6 +180,11 @@ export async function updateTeamMembers(teamId: number, newMembers: string[]) {
     .filter(Boolean)
 
   await db.update(teams).set({ members: cleanedMembers }).where(eq(teams.id, teamId))
+  revalidatePath("/")
+}
+
+export async function updateTeamLogo(teamId: number, logoUrl: string | null) {
+  await db.update(teams).set({ logoUrl }).where(eq(teams.id, teamId))
   revalidatePath("/")
 }
 

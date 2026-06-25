@@ -1,14 +1,42 @@
 "use client"
 
-import { useState, useTransition, type Dispatch, type SetStateAction } from "react"
+import { useState, useTransition, useRef, type Dispatch, type SetStateAction } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Shuffle, Dices, Trash2, X } from "lucide-react"
-import { drawTeams, updateTeamName, drawMatchups, clearTournament, updateTeamMembers } from "@/app/actions/futbol"
+import { Shuffle, Dices, Trash2, X, ImagePlus, ShieldOff } from "lucide-react"
+import { drawTeams, updateTeamName, drawMatchups, clearTournament, updateTeamMembers, updateTeamLogo } from "@/app/actions/futbol"
 import type { Player, Team } from "@/lib/db/schema"
+
+async function fileToCompressedDataUrl(file: File, maxSize = 256): Promise<string> {
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image()
+    image.onload = () => resolve(image)
+    image.onerror = reject
+    image.src = dataUrl
+  })
+
+  const scale = Math.min(1, maxSize / Math.max(img.width, img.height))
+  const w = Math.round(img.width * scale)
+  const h = Math.round(img.height * scale)
+
+  const canvas = document.createElement("canvas")
+  canvas.width = w
+  canvas.height = h
+  const ctx = canvas.getContext("2d")
+  if (!ctx) return dataUrl
+  ctx.drawImage(img, 0, 0, w, h)
+  return canvas.toDataURL("image/png", 0.85)
+}
 
 export function TeamsTab({
   players,
@@ -28,6 +56,27 @@ export function TeamsTab({
   const [editMembers, setEditMembers] = useState<Record<number, string[]>>({})
   const [newMemberInput, setNewMemberInput] = useState<Record<number, string>>({})
   const [isPending, startTransition] = useTransition()
+  const [uploadingLogoId, setUploadingLogoId] = useState<number | null>(null)
+  const fileInputRefs = useRef<Record<number, HTMLInputElement | null>>({})
+
+  function handleLogoSelect(teamId: number, file: File | undefined) {
+    if (!file) return
+    setUploadingLogoId(teamId)
+    fileToCompressedDataUrl(file)
+      .then((dataUrl) => {
+        startTransition(async () => {
+          await updateTeamLogo(teamId, dataUrl)
+          setUploadingLogoId(null)
+        })
+      })
+      .catch(() => setUploadingLogoId(null))
+  }
+
+  function handleRemoveLogo(teamId: number) {
+    startTransition(async () => {
+      await updateTeamLogo(teamId, null)
+    })
+  }
 
   function handleDraw() {
     startTransition(async () => {
@@ -141,6 +190,45 @@ export function TeamsTab({
             <CardContent className="space-y-4">
               {teams.map((team) => (
                 <div key={team.id} className="rounded-lg border p-4">
+                  <div className="mb-3 flex items-center gap-3">
+                    <div className="relative flex h-12 w-12 flex-shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-secondary/40">
+                      {team.logoUrl ? (
+                        <img src={team.logoUrl} alt={`Logo ${team.name}`} className="h-full w-full object-cover" />
+                      ) : (
+                        <ShieldOff className="h-5 w-5 text-muted-foreground" />
+                      )}
+                    </div>
+                    <input
+                      ref={(el) => {
+                        fileInputRefs.current[team.id] = el
+                      }}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => handleLogoSelect(team.id, e.target.files?.[0])}
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8"
+                      disabled={isPending || uploadingLogoId === team.id}
+                      onClick={() => fileInputRefs.current[team.id]?.click()}
+                    >
+                      <ImagePlus className="h-3.5 w-3.5" />
+                      {uploadingLogoId === team.id ? "Subiendo..." : team.logoUrl ? "Cambiar logo" : "Subir logo"}
+                    </Button>
+                    {team.logoUrl && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 text-muted-foreground hover:text-destructive"
+                        disabled={isPending}
+                        onClick={() => handleRemoveLogo(team.id)}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                  </div>
                   <div className="mb-3 flex items-center gap-2">
                     {editingId === team.id ? (
                       <div className="flex gap-2">

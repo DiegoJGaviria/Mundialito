@@ -12,8 +12,12 @@ export const teams = pgTable("teams", {
   name: text("name").notNull(),
   tournament: text("tournament").notNull().default("general"),
   members: jsonb("members").$type<string[]>().notNull().default([]),
+  logoUrl: text("logo_url"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 })
+
+// Tipos de tarjeta admitidos
+export type CardEntry = { player: string; card: "yellow" | "red" }
 
 export const matches = pgTable("matches", {
   id: serial("id").primaryKey(),
@@ -25,6 +29,10 @@ export const matches = pgTable("matches", {
   completed: boolean("completed").notNull().default(false),
   goalScorersA: jsonb("goal_scorers_a").$type<string[]>().notNull().default([]),
   goalScorersB: jsonb("goal_scorers_b").$type<string[]>().notNull().default([]),
+  cardsA: jsonb("cards_a").$type<CardEntry[]>().notNull().default([]),
+  cardsB: jsonb("cards_b").$type<CardEntry[]>().notNull().default([]),
+  foulsA: integer("fouls_a").notNull().default(0),
+  foulsB: integer("fouls_b").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 })
 
