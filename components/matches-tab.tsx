@@ -12,11 +12,11 @@ import type { Match, Team, CardEntry } from "@/lib/db/schema"
 
 function TeamLogo({ team }: { team: Team | undefined }) {
   return (
-    <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-secondary/40">
+    <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center">
       {team?.logoUrl ? (
-        <img src={team.logoUrl} alt="" className="h-full w-full object-cover" />
+        <img src={team.logoUrl} alt="" className="h-full w-full object-contain" />
       ) : (
-        <ShieldOff className="h-3.5 w-3.5 text-muted-foreground" />
+        <ShieldOff className="h-4 w-4 text-muted-foreground" />
       )}
     </div>
   )
@@ -62,18 +62,18 @@ function ScorersEditor({
         ))}
       </div>
       {members.length > 0 && scorers.length < maxGoals && (
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <select
             value={selected}
             onChange={(e) => setSelected(e.target.value)}
-            className="flex-1 rounded-lg border border-border bg-background px-2 py-1.5 text-xs shadow-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            className="min-w-0 flex-1 basis-32 rounded-lg border border-border bg-background px-2 py-1.5 text-xs shadow-sm focus:outline-none focus:ring-2 focus:ring-primary"
           >
             <option value="">Elegir jugador...</option>
             {members.map((m) => (
               <option key={m} value={m}>{m}</option>
             ))}
           </select>
-          <Button size="sm" variant="outline" className="h-8" onClick={addScorer} disabled={!selected}>
+          <Button size="sm" variant="outline" className="h-8 flex-shrink-0" onClick={addScorer} disabled={!selected}>
             <Plus className="h-3 w-3" />
           </Button>
         </div>
@@ -120,11 +120,11 @@ function CardsEditor({
         ))}
       </div>
       {members.length > 0 && (
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <select
             value={selected}
             onChange={(e) => setSelected(e.target.value)}
-            className="flex-1 rounded-lg border border-border bg-background px-2 py-1.5 text-xs shadow-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            className="min-w-0 flex-1 basis-32 rounded-lg border border-border bg-background px-2 py-1.5 text-xs shadow-sm focus:outline-none focus:ring-2 focus:ring-primary"
           >
             <option value="">Elegir jugador...</option>
             {members.map((m) => (
@@ -134,12 +134,12 @@ function CardsEditor({
           <select
             value={cardType}
             onChange={(e) => setCardType(e.target.value as "yellow" | "red")}
-            className="rounded-lg border border-border bg-background px-2 py-1.5 text-xs shadow-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            className="w-28 flex-shrink-0 rounded-lg border border-border bg-background px-2 py-1.5 text-xs shadow-sm focus:outline-none focus:ring-2 focus:ring-primary"
           >
             <option value="yellow">🟨 Amarilla</option>
             <option value="red">🟥 Roja</option>
           </select>
-          <Button size="sm" variant="outline" className="h-8" onClick={addCard} disabled={!selected}>
+          <Button size="sm" variant="outline" className="h-8 flex-shrink-0" onClick={addCard} disabled={!selected}>
             <Plus className="h-3 w-3" />
           </Button>
         </div>
@@ -387,15 +387,15 @@ export function MatchesTab({ teams, matches, tournament }: { teams: Team[]; matc
                   >
                     {isEditing ? (
                       <div className="flex flex-col gap-3">
-                        <div className="flex flex-1 items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <TeamLogo team={teamObjA} />
-                          <span className="text-right text-sm font-medium">{teamName(m.teamAId)}</span>
+                          <span className="text-sm font-medium">{teamName(m.teamAId)}</span>
                           <Input
                             type="number"
                             min={0}
                             value={editGoalsA}
                             onChange={(e) => setEditGoalsA(e.target.value)}
-                            className="h-8 w-16 text-center"
+                            className="h-8 w-16 flex-shrink-0 text-center"
                           />
                           <span className="text-xs">-</span>
                           <Input
@@ -403,16 +403,18 @@ export function MatchesTab({ teams, matches, tournament }: { teams: Team[]; matc
                             min={0}
                             value={editGoalsB}
                             onChange={(e) => setEditGoalsB(e.target.value)}
-                            className="h-8 w-16 text-center"
+                            className="h-8 w-16 flex-shrink-0 text-center"
                           />
-                          <span className="text-left text-sm font-medium">{teamName(m.teamBId)}</span>
+                          <span className="text-sm font-medium">{teamName(m.teamBId)}</span>
                           <TeamLogo team={teamObjB} />
-                          <Button size="sm" onClick={() => handleSaveEdit(m.id)} disabled={isPending} className="ml-auto h-8">
-                            Guardar
-                          </Button>
-                          <Button size="sm" variant="outline" onClick={handleCancelEdit} className="h-8">
-                            <X className="h-3 w-3" />
-                          </Button>
+                          <div className="ml-auto flex flex-shrink-0 gap-2">
+                            <Button size="sm" onClick={() => handleSaveEdit(m.id)} disabled={isPending} className="h-8">
+                              Guardar
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={handleCancelEdit} className="h-8">
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </div>
                         </div>
                         <div className="grid gap-3 rounded-lg border border-dashed border-border p-3 sm:grid-cols-2">
                           <ScorersEditor
@@ -443,55 +445,57 @@ export function MatchesTab({ teams, matches, tournament }: { teams: Team[]; matc
                       </div>
                     ) : (
                       <>
-                        <div className="flex items-center gap-2">
-                          <div className="grid flex-1 grid-cols-[auto_1fr_auto_1fr_auto] items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <div className="grid min-w-0 flex-1 grid-cols-[auto_1fr_auto_1fr_auto] items-center gap-2">
                             <TeamLogo team={teamObjA} />
-                            <span className={`text-right text-sm font-medium ${aWins ? "text-primary" : ""}`}>
+                            <span className={`truncate text-right text-sm font-medium ${aWins ? "text-primary" : ""}`}>
                               {teamName(m.teamAId)}
                             </span>
                             <span className="rounded-md bg-background px-2 py-1 text-center font-mono text-sm font-semibold tabular-nums">
                               {m.goalsA} - {m.goalsB}
                             </span>
-                            <span className={`text-left text-sm font-medium ${bWins ? "text-primary" : ""}`}>
+                            <span className={`truncate text-left text-sm font-medium ${bWins ? "text-primary" : ""}`}>
                               {teamName(m.teamBId)}
                             </span>
                             <TeamLogo team={teamObjB} />
                           </div>
-                          {draw && (
-                            <Badge variant="secondary" className="hidden sm:inline-flex">
-                              Empate
-                            </Badge>
-                          )}
-                          {hasDetails && (
+                          <div className="flex flex-shrink-0 items-center gap-1">
+                            {draw && (
+                              <Badge variant="secondary" className="hidden sm:inline-flex">
+                                Empate
+                              </Badge>
+                            )}
+                            {hasDetails && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 text-xs text-muted-foreground"
+                                onClick={() => setExpandedId(isExpanded ? null : m.id)}
+                              >
+                                {isExpanded ? "Ocultar" : "Detalles"}
+                              </Button>
+                            )}
                             <Button
                               variant="ghost"
-                              size="sm"
-                              className="h-8 text-xs text-muted-foreground"
-                              onClick={() => setExpandedId(isExpanded ? null : m.id)}
+                              size="icon"
+                              className="h-8 w-8 text-muted-foreground hover:text-primary"
+                              onClick={() => handleEditClick(m)}
+                              disabled={isPending}
+                              aria-label="Editar partido"
                             >
-                              {isExpanded ? "Ocultar" : "Detalles"}
+                              <Edit2 className="h-4 w-4" />
                             </Button>
-                          )}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-muted-foreground hover:text-primary"
-                            onClick={() => handleEditClick(m)}
-                            disabled={isPending}
-                            aria-label="Editar partido"
-                          >
-                            <Edit2 className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                            onClick={() => handleDelete(m.id)}
-                            disabled={isPending}
-                            aria-label="Eliminar partido"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                              onClick={() => handleDelete(m.id)}
+                              disabled={isPending}
+                              aria-label="Eliminar partido"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </div>
 
                         {isExpanded && (

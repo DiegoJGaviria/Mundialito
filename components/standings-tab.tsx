@@ -11,11 +11,11 @@ import type { Match, Team } from "@/lib/db/schema"
 
 function TeamLogo({ team }: { team: Team | undefined }) {
   return (
-    <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-secondary/40">
+    <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center">
       {team?.logoUrl ? (
-        <img src={team.logoUrl} alt="" className="h-full w-full object-cover" />
+        <img src={team.logoUrl} alt="" className="h-full w-full object-contain" />
       ) : (
-        <ShieldOff className="h-3 w-3 text-muted-foreground" />
+        <ShieldOff className="h-3.5 w-3.5 text-muted-foreground" />
       )}
     </div>
   )

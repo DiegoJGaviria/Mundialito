@@ -190,12 +190,12 @@ export function TeamsTab({
             <CardContent className="space-y-4">
               {teams.map((team) => (
                 <div key={team.id} className="rounded-lg border p-4">
-                  <div className="mb-3 flex items-center gap-3">
-                    <div className="relative flex h-12 w-12 flex-shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-secondary/40">
+                  <div className="mb-3 flex flex-wrap items-center gap-3">
+                    <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center">
                       {team.logoUrl ? (
-                        <img src={team.logoUrl} alt={`Logo ${team.name}`} className="h-full w-full object-cover" />
+                        <img src={team.logoUrl} alt={`Logo ${team.name}`} className="h-full w-full object-contain" />
                       ) : (
-                        <ShieldOff className="h-5 w-5 text-muted-foreground" />
+                        <ShieldOff className="h-6 w-6 text-muted-foreground" />
                       )}
                     </div>
                     <input
